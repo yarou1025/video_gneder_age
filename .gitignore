@@ -1,3 +1,7 @@
 *.mp4
 WindowsPowerShell/*
-detected_faces/*
+*detected_faces*/*
+*frames*/*
+*.log
+*.png
+*.jpg

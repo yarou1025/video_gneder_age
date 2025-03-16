@@ -3,9 +3,9 @@ import cv2
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from deepface import DeepFace
 from mtcnn import MTCNN
 from transformers import BlipProcessor, BlipForConditionalGeneration
-from deepface import DeepFace
 from PIL import Image
 
 # Create a directory to store detected faces
@@ -18,31 +18,57 @@ processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-larg
 model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-large")
 detector = MTCNN()
 
-def extract_frames(video_path, interval=5):
+def extract_frames(video_path, frame_interval=1, output_folder='frames'):
     """
-    Extracts frames from the video at the specified interval.
+    Extracts frames from a video and saves them as images.
+
+    Parameters:
+    - video_path: Path to the input video file.
+    - output_folder: Folder where the frames will be saved.
+    - frame_interval: Save every nth frame (default is 1, meaning every frame).
     """
+    # Create output folder if it doesn't exist
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Open the video file
     cap = cv2.VideoCapture(video_path)
-    frame_rate = cap.get(cv2.CAP_PROP_FPS)
+
     frame_count = 0
-    frames = []
+    saved_count = 0
+
+    frame_names = []
 
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
-            break
-        if frame_count % (frame_rate * interval) == 0:
-            frames.append(frame)
+             break  # Stop when video ends
+        if frame_count % frame_interval == 0:  # Save every nth frame
+            frame_filename = os.path.join(output_folder, f"frame_{saved_count:04d}.jpg")
+            cv2.imwrite(frame_filename, frame)
+            saved_count += 1
+            frame_names.append(frame)
+
+
+            # Show the frame with Matplotlib
+            # plt.figure(figsize=(10, 6))
+            # plt.imshow( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+            # plt.axis("off")  # Hide axes
+            # plt.title(f"Frame {frame_filename}")
+            # plt.show()
+
         frame_count += 1
 
     cap.release()
-    return frames
+    cv2.destroyAllWindows()
+
+    return frame_names
 
 def detect_faces(frames):
     """
     Detects faces in each frame and saves cropped faces as images.
     """
     all_faces = []
+    all_face_names = []
     face_id = 0  # Unique identifier for each detected face
 
     for i, frame in enumerate(frames):
@@ -56,14 +82,15 @@ def detect_faces(frames):
             faces_in_frame.append(cropped_face)
 
             # Save the face image
-            face_filename = f"{output_dir}/face_{i}_{face_id}.jpg"
+            face_filename = os.path.join(output_dir, f"face_{i}_{face_id}.jpg")
+            all_face_names.append(face_filename)
             cv2.imwrite(face_filename, cropped_face)
             face_id += 1  # Increment face ID for uniqueness
 
         all_faces.append(faces_in_frame)
 
     print(f"Saved {face_id} detected faces in '{output_dir}' directory.")
-    return all_faces
+    return all_faces, all_face_names
 
 def display_faces(faces):
     """
@@ -110,28 +137,31 @@ def process_video(video_path, interval=5, method="blip"):
     frames = extract_frames(video_path, interval)
 
     print("Detecting and saving faces...")
-    all_faces = detect_faces(frames)
+    all_faces, all_face_names = detect_faces(frames)
 
     print("Processing faces...")
     descriptions = []
 
-    for faces_in_frame in all_faces:
+    face_id = 0
+
+    for i, faces_in_frame in enumerate(all_faces):
         if faces_in_frame:
-            print(f"Displaying {len(faces_in_frame)} detected faces in a frame...")
-            display_faces(faces_in_frame)  # Show faces before processing
+            # print(f"Displaying {len(faces_in_frame)} detected faces in a frame...")
+            # display_faces(faces_in_frame)  # Show faces before processing
 
             for face in faces_in_frame:
                 if method == "blip":
                     descriptions.append(describe_face_blip(face))
                 elif method == "deepface":
-                    descriptions.append(analyze_face_deepface(face))
+                    descriptions.append(analyze_face_deepface(face)+f'-face_{i}_{face_id}')
+                face_id += 1
 
     return descriptions
 
 if __name__ == "__main__":
-    video_path = "input_video.mp4"  # Change this to your video file
-    method = "blip"  # Choose "blip" for natural language or "deepface" for structured output
-    descriptions = process_video(video_path, interval=5, method=method)
+    video_path = "input_video_0305.mp4"  # Change this to your video file
+    method = "deepface"  # Choose "blip" for natural language or "deepface" for structured output
+    descriptions = process_video(video_path, interval=25, method=method)
 
     print("\nGenerated Descriptions:")
     for desc in descriptions:
