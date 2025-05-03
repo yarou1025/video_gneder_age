@@ -43,7 +43,7 @@ def extract_frames(video_path, frame_interval=1, output_folder='frames'):
         if not ret:
              break  # Stop when video ends
         if frame_count % frame_interval == 0:  # Save every nth frame
-            frame_filename = os.path.join(output_folder, f"frame_{saved_count:04d}.jpg")
+            frame_filename = os.path.join(output_folder, f"frame_{saved_count:04d}.png")
             cv2.imwrite(frame_filename, frame)
             saved_count += 1
             frame_names.append(frame)
@@ -82,7 +82,7 @@ def detect_faces(frames):
             faces_in_frame.append(cropped_face)
 
             # Save the face image
-            face_filename = os.path.join(output_dir, f"face_{i}_{face_id}.jpg")
+            face_filename = os.path.join(output_dir, f"face_{i}_{face_id}.png")
             all_face_names.append(face_filename)
             cv2.imwrite(face_filename, cropped_face)
             face_id += 1  # Increment face ID for uniqueness
